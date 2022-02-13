@@ -12,7 +12,7 @@ import static java.lang.Math.scalb;
  * {@link ArbitrarilyJumpableGenerator}. Its entropy is replenished by jumping a truly-random distance.
  * @param <T> the delegate PRNG's type.
  */
-public class ReseedByJumpingRandomGenerator<T extends ArbitrarilyJumpableGenerator>
+public class ReseedByArbitraryJumpingRandomGenerator<T extends ArbitrarilyJumpableGenerator>
     extends ReseedingRandomGenerator<T> {
   /**
    * The maximum number of bytes that can be combined into a long that will always be exactly representable as a double.
@@ -22,8 +22,8 @@ public class ReseedByJumpingRandomGenerator<T extends ArbitrarilyJumpableGenerat
   private final int lastFullDouble = (seedSize / BYTES_PER_DOUBLE_WITH_INTEGER_PRECISION)
       * BYTES_PER_DOUBLE_WITH_INTEGER_PRECISION;
 
-  public ReseedByJumpingRandomGenerator(Function<byte[], T> delegateFactory,
-      AtomicSeedByteRingBuffer seedSource, int seedSize) {
+  public ReseedByArbitraryJumpingRandomGenerator(Function<byte[], T> delegateFactory,
+                                                 AtomicSeedByteRingBuffer seedSource, int seedSize) {
     super(delegateFactory, seedSource, seedSize);
   }
 
@@ -41,5 +41,20 @@ public class ReseedByJumpingRandomGenerator<T extends ArbitrarilyJumpableGenerat
     for (; i < seedSize; i++) {
       delegate.jump(scalb(seedHolder[i], i * Byte.SIZE));
     }
+  }
+
+  protected T createDelegate() {
+    try {
+      seedSource.read(seedHolder, currentSeedBytes, seedSize);
+    } catch (final InterruptedException e) {
+      throw new RuntimeException(e);
+    }
+    currentSeedBytes = 0;
+    T delegate = delegateFactory.apply(seedHolder);
+    return delegate;
+  }
+
+  protected void setDelegate(final T newDelegate) {
+    delegate = newDelegate;
   }
 }

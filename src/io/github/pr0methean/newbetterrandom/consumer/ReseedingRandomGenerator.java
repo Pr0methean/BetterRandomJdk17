@@ -10,7 +10,7 @@ public abstract class ReseedingRandomGenerator<T extends RandomGenerator> implem
   protected final AtomicSeedByteRingBuffer seedSource;
   protected final int seedSize;
   protected final byte[] seedHolder;
-  private int currentSeedBytes;
+  protected int currentSeedBytes;
   protected T delegate;
 
   public ReseedingRandomGenerator(
@@ -52,18 +52,4 @@ public abstract class ReseedingRandomGenerator<T extends RandomGenerator> implem
 
   protected abstract void reseed();
 
-  protected T createDelegate() {
-    try {
-      seedSource.read(seedHolder, currentSeedBytes, seedSize);
-    } catch (final InterruptedException e) {
-      throw new RuntimeException(e);
-    }
-    currentSeedBytes = 0;
-    T delegate = delegateFactory.apply(seedHolder);
-    return delegate;
-  }
-
-  protected void setDelegate(final T newDelegate) {
-    delegate = newDelegate;
-  }
 }

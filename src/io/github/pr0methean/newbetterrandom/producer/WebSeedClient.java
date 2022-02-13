@@ -12,11 +12,11 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import javax.annotation.Nullable;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLSocketFactory;
+
+import io.github.pr0methean.newbetterrandom.buffer.AtomicSeedByteRingBuffer;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
@@ -40,15 +40,10 @@ public abstract class WebSeedClient extends AbstractSeedProvider {
   protected static final JSONParser JSON_PARSER = new JSONParser();
   private static final long serialVersionUID = 2216766353219231461L;
   /**
-   * Held while downloading, so that two requests to the same server won't be pending at the same
-   * time.
-   */
-  protected final Lock lock = new ReentrantLock(true);
-  /**
    * The earliest time we'll try again if there's been a previous IOE, or when the server requests
    * throttling.
    */
-  protected volatile Instant earliestNextAttempt = Instant.MIN;
+  protected Instant earliestNextAttempt = Instant.MIN;
   private final WebSeedClientConfiguration configuration;
 
   /**
@@ -57,31 +52,15 @@ public abstract class WebSeedClient extends AbstractSeedProvider {
   protected final String userAgent;
 
   /**
-   * @param proxy the proxy to use with this server, or null to use the JVM default
-   * @param socketFactory the socket factory, or null for the JVM default
-   * @param useRetryDelay whether to wait 10 seconds before trying again after an IOException
-   * @deprecated Use one of the other overloads, which allow specifying the delay before retry.
-   */
-  @Deprecated
-  protected WebSeedClient(@Nullable final Proxy proxy,
-      @Nullable final SSLSocketFactory socketFactory, final boolean useRetryDelay) {
-    this(new WebSeedClientConfiguration.Builder().setProxy(proxy).setSocketFactory(socketFactory)
-        .setRetryDelay(useRetryDelay
-            ? DefaultSeedGenerator.DEFAULT_RETRY_DELAY
-            : Duration.ZERO)
-        .build());
-  }
-
-  /**
    * @param webSeedClientConfiguration configuration
    */
-  protected WebSeedClient(WebSeedClientConfiguration webSeedClientConfiguration) {
+  protected WebSeedClient(
+      final AtomicSeedByteRingBuffer buffer,
+      final int sourceReadSize,
+      final WebSeedClientConfiguration webSeedClientConfiguration) {
+    super(buffer, sourceReadSize);
     configuration = webSeedClientConfiguration;
     userAgent = getClass().getName();
-  }
-
-  protected WebSeedClient() {
-    this(WebSeedClientConfiguration.DEFAULT);
   }
 
   /**
@@ -188,13 +167,12 @@ public abstract class WebSeedClient extends AbstractSeedProvider {
     final int batches = divideRoundingUp(length, batchSize);
     final int lastBatchSize = modRange1ToM(length, batchSize);
     final URL lastBatchUrl = getConnectionUrl(lastBatchSize);
-    lock.lock();
     try {
       int batch;
       for (batch = 0; batch < batches - 1; batch++) {
-        downloadBatch(seed, batch * batchSize, batchSize, batchUrl);
+        downloadBatch(batch * batchSize, batchSize, batchUrl);
       }
-      downloadBatch(seed, batch * batchSize, lastBatchSize, lastBatchUrl);
+      downloadBatch(batch * batchSize, lastBatchSize, lastBatchUrl);
     } catch (final IOException ex) {
       if (getRetryDelayMs() > 0) {
         earliestNextAttempt = CLOCK.instant().plusMillis(getRetryDelayMs());
@@ -203,8 +181,6 @@ public abstract class WebSeedClient extends AbstractSeedProvider {
     } catch (final SecurityException ex) {
       // Might be thrown if resource access is restricted (such as in an applet sandbox).
       throw new SeedException("SecurityManager prevented access to a remote seed source", ex);
-    } finally {
-      lock.unlock();
     }
   }
 
@@ -220,10 +196,10 @@ public abstract class WebSeedClient extends AbstractSeedProvider {
     return result;
   }
 
-  private void downloadBatch(byte[] seed, int offset, int length, URL batchUrl) throws IOException {
+  private void downloadBatch(int offset, int length, URL batchUrl) throws IOException {
     HttpURLConnection connection = openConnection(batchUrl);
     try {
-      downloadBytes(connection, seed, offset, length);
+      downloadBytes(connection, sourceBuffer, offset, length);
     } finally {
       connection.disconnect();
     }
@@ -250,20 +226,20 @@ public abstract class WebSeedClient extends AbstractSeedProvider {
    * The proxy to use with this server, or null to use the JVM default.
    */
   @Nullable protected Proxy getProxy() {
-    return configuration.getProxy();
+    return configuration.proxy();
   }
 
   /**
    * The SSLSocketFactory to use with this server.
    */
   @Nullable protected SSLSocketFactory getSocketFactory() {
-    return configuration.getSocketFactory();
+    return configuration.socketFactory();
   }
 
   /**
    * Wait this many milliseconds before trying again after an IOException.
    */
   protected long getRetryDelayMs() {
-    return configuration.getRetryDelayMs();
+    return configuration.retryDelayMs();
   }
 }
