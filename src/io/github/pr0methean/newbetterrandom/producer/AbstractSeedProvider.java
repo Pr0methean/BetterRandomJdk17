@@ -5,31 +5,29 @@ import java.lang.ref.WeakReference;
 
 public abstract class AbstractSeedProvider implements Runnable {
   protected final WeakReference<AtomicSeedByteRingBuffer> destBuffer;
-  protected final byte[] sourceBuffer;
   protected final int sourceReadSize;
-
-  protected AbstractSeedProvider(final int size, final int readConcurrency) {
-    this(new AtomicSeedByteRingBuffer(size * readConcurrency), size);
-  }
 
   protected AbstractSeedProvider(final AtomicSeedByteRingBuffer destBuffer, final int sourceReadSize) {
     this.destBuffer = new WeakReference<>(destBuffer);
     this.sourceReadSize = sourceReadSize;
-    sourceBuffer = new byte[sourceReadSize];
   }
 
   @Override public void run() {
-    AtomicSeedByteRingBuffer destBufferNow = destBuffer.get();
-    try {
-      while (destBufferNow != null) {
-        fillSourceBuffer();
-        AtomicSeedByteRingBuffer.writeWhileExists(destBuffer, sourceBuffer, 0, sourceReadSize);
-        destBufferNow = destBuffer.get();
+    AtomicSeedByteRingBuffer destBufferNow;
+    while (true) {
+      destBufferNow = destBuffer.get();
+      if (destBufferNow == null) {
+        return; // Dest buffer isn't reachable by potential readers, so terminate the thread
       }
-    } catch (final InterruptedException ignored) {
-      Thread.currentThread().interrupt();
+      try {
+        byte[] seed = getSeedBytes();
+        AtomicSeedByteRingBuffer.writeWhileExists(destBuffer, seed, 0, sourceReadSize);
+      } catch (final InterruptedException ignored) {
+        Thread.currentThread().interrupt();
+        return;
+      }
     }
   }
 
-  protected abstract void fillSourceBuffer();
+  protected abstract byte[] getSeedBytes() throws InterruptedException;
 }

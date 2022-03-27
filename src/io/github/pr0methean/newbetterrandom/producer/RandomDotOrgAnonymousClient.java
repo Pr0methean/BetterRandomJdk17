@@ -1,6 +1,7 @@
 package io.github.pr0methean.newbetterrandom.producer;
 
-import com.google.common.primitives.UnsignedBytes;
+import io.github.pr0methean.newbetterrandom.buffer.AtomicSeedByteRingBuffer;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -11,7 +12,7 @@ import java.text.MessageFormat;
 /**
  * <p>Connects to <a href="https://www.random.org/clients/http/" target="_top">random.org's old
  * API</a> (via HTTPS) and downloads a set of random bits to use as seed data.  It is generally
- * better to use the {@link DevRandomSeedGenerator} where possible, as it should be much quicker.
+ * better to use a {@link SecureRandomSeedProvider} where possible, as it should be much quicker.
  * This seed generator is most useful on Microsoft Windows without Cygwin, and other platforms that
  * do not provide {@literal /dev/random} (or where that device is very slow).</p>
  * <p>Random.org collects randomness from atmospheric noise using 9 radios, located at undisclosed
@@ -36,7 +37,6 @@ import java.text.MessageFormat;
  */
 public class RandomDotOrgAnonymousClient extends WebSeedClient {
 
-  private static final long serialVersionUID = 2017387159245489913L;
   private static final int MAX_REQUEST_SIZE = 10000;
 
   /**
@@ -46,11 +46,14 @@ public class RandomDotOrgAnonymousClient extends WebSeedClient {
       "https://www.random.org/integers/?num={0,number," +
           "0}&min=0&max=255&col=1&base=16&format=plain&rnd=new";
 
-  public RandomDotOrgAnonymousClient(WebSeedClientConfiguration configuration) {
-    super(configuration);
+  /**
+   * @param buffer
+   * @param sourceReadSize
+   * @param webSeedClientConfiguration configuration
+   */
+  protected RandomDotOrgAnonymousClient(AtomicSeedByteRingBuffer buffer, int sourceReadSize, WebSeedClientConfiguration webSeedClientConfiguration) {
+    super(buffer, sourceReadSize, webSeedClientConfiguration);
   }
-
-  public RandomDotOrgAnonymousClient() {}
 
   @Override protected int getMaxRequestSize() {
     return MAX_REQUEST_SIZE;
@@ -74,7 +77,8 @@ public class RandomDotOrgAnonymousClient extends WebSeedClient {
               .format("Insufficient data received: expected %d bytes, got %d.", length, index));
         }
         try {
-          seed[offset + index] = UnsignedBytes.parseUnsignedByte(line, 16);
+          // Byte still has no method to parse unsigned
+          seed[offset + index] = (byte) Integer.parseInt(line, 16);
         } catch (final NumberFormatException e) {
           throw new SeedException("random.org sent non-numeric data", e);
         }

@@ -2,6 +2,7 @@ package io.github.pr0methean.newbetterrandom.producer;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -9,20 +10,20 @@ import java.net.HttpURLConnection;
 import java.net.Proxy;
 import java.net.URL;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLSocketFactory;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.JsonNode;
 import io.github.pr0methean.newbetterrandom.buffer.AtomicSeedByteRingBuffer;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
 
 /**
- * A {@link SeedGenerator} that is a client for a Web random-number service. Contains many methods
+ * An {@link AbstractSeedProvider} that is a client for a Web random-number service. Contains many methods
  * for parsing JSON responses.
  */
 public abstract class WebSeedClient extends AbstractSeedProvider {
@@ -37,19 +38,15 @@ public abstract class WebSeedClient extends AbstractSeedProvider {
   /**
    * Made available to parse JSON responses.
    */
-  protected static final JSONParser JSON_PARSER = new JSONParser();
-  private static final long serialVersionUID = 2216766353219231461L;
-  /**
-   * The earliest time we'll try again if there's been a previous IOE, or when the server requests
-   * throttling.
-   */
-  protected Instant earliestNextAttempt = Instant.MIN;
+  protected static final JsonFactory JSON_FACTORY = new JsonFactory();
   private final WebSeedClientConfiguration configuration;
+  private final byte[] sourceBuffer;
 
   /**
    * The value for the HTTP User-Agent header.
    */
   protected final String userAgent;
+  protected Instant earliestNextAttempt = Instant.MIN;
 
   /**
    * @param webSeedClientConfiguration configuration
@@ -61,25 +58,7 @@ public abstract class WebSeedClient extends AbstractSeedProvider {
     super(buffer, sourceReadSize);
     configuration = webSeedClientConfiguration;
     userAgent = getClass().getName();
-  }
-
-  /**
-   * Reads a field value from a JSON object and checks that it is the correct type.
-   * @param parent the JSON object to retrieve a field from
-   * @param key the field name
-   * @param outputClass the object class that we expect the value to be
-   * @param <T> the type of {@code outputClass}
-   * @return the field value
-   * @throws SeedException if the field is missing or the wrong type
-   */
-  protected static <T> T checkedGetObject(final JSONObject parent, final String key,
-      Class<T> outputClass) {
-    Object child = parent.get(key);
-    if (!outputClass.isInstance(child)) {
-      throw new SeedException(String.format("Expected %s to have child key %s of type %s",
-          parent, key, outputClass));
-    }
-    return outputClass.cast(child);
+    sourceBuffer = new byte[sourceReadSize];
   }
 
   /**
@@ -100,20 +79,14 @@ public abstract class WebSeedClient extends AbstractSeedProvider {
    * Parses the response from the given {@link HttpURLConnection} as UTF-8 encoded JSON.
    *
    * @param connection the connection to parse the response from
-   * @return the response as a {@link JSONObject}
+   * @return the response as a {@link JsonNode}
    * @throws IOException if thrown by {@link HttpURLConnection#getInputStream()}
    */
-  protected static JSONObject parseJsonResponse(HttpURLConnection connection) throws IOException {
-    final Object response;
-    try (final BufferedReader reader = getResponseReader(connection)) {
-      response = JSON_PARSER.parse(reader);
-    } catch (final ParseException e) {
-      throw new SeedException("Unparseable JSON response", e);
+  protected static JsonNode parseJsonResponse(HttpURLConnection connection) throws IOException {
+    try (BufferedInputStream inputStream = new BufferedInputStream(connection.getInputStream());
+         JsonParser jsonParser = JSON_FACTORY.createParser(inputStream)) {
+      return jsonParser.readValueAsTree();
     }
-    if (!(response instanceof JSONObject)) {
-      throw new SeedException(String.format("Response %s is not a JSON object", response));
-    }
-    return (JSONObject) response;
   }
 
   /**
@@ -126,7 +99,7 @@ public abstract class WebSeedClient extends AbstractSeedProvider {
 
   /**
    * Opens an {@link HttpsURLConnection} that will make a GET request to the given URL using this
-   * seed generator's current {@link Proxy}, {@link SeedGenerator} and User-Agent string, with the
+   * seed generator's current {@link Proxy} and User-Agent string, with the
    * header {@code Content-Type: application/json}.
    *
    * @param url the URL to connect to
@@ -158,9 +131,9 @@ public abstract class WebSeedClient extends AbstractSeedProvider {
    * @throws SeedException if a malformed response is received
    */
   protected abstract void downloadBytes(HttpURLConnection connection, byte[] seed, int offset,
-      int length) throws IOException;
+      int length) throws IOException, InterruptedException;
 
-  @Override protected void fillSourceBuffer() {
+  @Override protected byte[] getSeedBytes() throws InterruptedException {
     final int length = sourceReadSize;
     final int batchSize = Math.min(length, getMaxRequestSize());
     final URL batchUrl = getConnectionUrl(batchSize);
@@ -170,18 +143,14 @@ public abstract class WebSeedClient extends AbstractSeedProvider {
     try {
       int batch;
       for (batch = 0; batch < batches - 1; batch++) {
-        downloadBatch(batch * batchSize, batchSize, batchUrl);
+        downloadBatch(sourceBuffer, batch * batchSize, batchSize, batchUrl);
       }
-      downloadBatch(batch * batchSize, lastBatchSize, lastBatchUrl);
-    } catch (final IOException ex) {
-      if (getRetryDelayMs() > 0) {
-        earliestNextAttempt = CLOCK.instant().plusMillis(getRetryDelayMs());
-      }
-      throw new SeedException("Failed downloading bytes", ex);
+      downloadBatch(sourceBuffer, batch * batchSize, lastBatchSize, lastBatchUrl);
     } catch (final SecurityException ex) {
       // Might be thrown if resource access is restricted (such as in an applet sandbox).
       throw new SeedException("SecurityManager prevented access to a remote seed source", ex);
     }
+    return sourceBuffer;
   }
 
   protected static int divideRoundingUp(int dividend, int divisor) {
@@ -196,12 +165,34 @@ public abstract class WebSeedClient extends AbstractSeedProvider {
     return result;
   }
 
-  private void downloadBatch(int offset, int length, URL batchUrl) throws IOException {
-    HttpURLConnection connection = openConnection(batchUrl);
-    try {
-      downloadBytes(connection, sourceBuffer, offset, length);
-    } finally {
-      connection.disconnect();
+  private void downloadBatch(byte[] dest, int offset, int length, URL batchUrl) throws InterruptedException {
+    awaitNextAttemptTime();
+    boolean succeeded = false;
+    int retries = 0;
+    while (!succeeded) {
+      try {
+        HttpURLConnection connection = openConnection(batchUrl);
+        try {
+          downloadBytes(connection, dest, offset, length);
+          succeeded = true;
+        } finally {
+          connection.disconnect();
+        }
+      } catch (IOException e) {
+        if (++retries > configuration.maxRetries()) {
+          throw new RuntimeException(e);
+        } else {
+          earliestNextAttempt = CLOCK.instant().plusMillis(getRetryDelayMs());
+        }
+      }
+    }
+  }
+
+  protected void awaitNextAttemptTime() throws InterruptedException {
+    long timeToSleep = CLOCK.instant().until(earliestNextAttempt, ChronoUnit.MILLIS);
+    while (timeToSleep > 0) {
+      Thread.sleep(timeToSleep);
+      timeToSleep = CLOCK.instant().until(earliestNextAttempt, ChronoUnit.MILLIS);
     }
   }
 

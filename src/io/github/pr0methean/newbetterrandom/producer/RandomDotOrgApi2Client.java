@@ -26,9 +26,9 @@ import java.util.Base64.Decoder;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import io.github.pr0methean.newbetterrandom.buffer.AtomicSeedByteRingBuffer;
 
 /**
  * Uses the random.org JSON API documented at
@@ -41,7 +41,17 @@ public final class RandomDotOrgApi2Client extends WebSeedClient {
 
   private static final String JSON_REQUEST_FORMAT = "{\"jsonrpc\":\"2.0\"," +
       "\"method\":\"generateBlobs\",\"params\":{\"apiKey\":\"%s\",\"n\":1,\"size\":%d},\"id\":%d}";
-  private static final long serialVersionUID = 8901705097958111045L;
+
+  /**
+   * @param buffer
+   * @param sourceReadSize
+   * @param webSeedClientConfiguration configuration
+   * @param apiKey
+   */
+  public RandomDotOrgApi2Client(AtomicSeedByteRingBuffer buffer, int sourceReadSize, WebSeedClientConfiguration webSeedClientConfiguration, UUID apiKey) {
+    super(buffer, sourceReadSize, webSeedClientConfiguration);
+    this.apiKey = apiKey;
+  }
 
   /**
    * The maximum number of bytes the site will provide in response to one request. Seeds larger than
@@ -58,9 +68,7 @@ public final class RandomDotOrgApi2Client extends WebSeedClient {
   }
 
   private static final AtomicLong REQUEST_ID = new AtomicLong(0);
-  private static final AtomicReference<UUID> API_KEY = new AtomicReference<>(null);
   private static final Decoder BASE64 = Base64.getDecoder();
-  private static final String BASE_URL = "https://www.random.org";
   private static final int MAX_REQUEST_SIZE = 10000;
   private static final URL JSON_REQUEST_URL;
 
@@ -75,36 +83,26 @@ public final class RandomDotOrgApi2Client extends WebSeedClient {
 
   private final UUID apiKey;
 
-  public RandomDotOrgApi2Client(WebSeedClientConfiguration configuration, UUID apiKey) {
-    super(configuration);
-    if (apiKey == null) {
-      throw new IllegalArgumentException("apiKey must not be null");
-    }
-    this.apiKey = apiKey;
-  }
-
-  public RandomDotOrgApi2Client(UUID apiKey) {
-    this(WebSeedClientConfiguration.DEFAULT, apiKey);
-  }
-
   @Override protected void downloadBytes(HttpURLConnection connection, byte[] seed, int offset,
-      final int length) throws IOException {
+      final int length) throws IOException, InterruptedException {
     connection.setDoOutput(true);
     connection.setRequestMethod("POST");
+    awaitNextAttemptTime();
     try (final OutputStream out = connection.getOutputStream()) {
       out.write(String.format(JSON_REQUEST_FORMAT, apiKey, length * Byte.SIZE,
           REQUEST_ID.incrementAndGet()).getBytes(StandardCharsets.UTF_8));
     }
-    final JSONObject response = parseJsonResponse(connection);
-    final Object error = response.get("error");
-    if (error != null) {
+    final JsonNode response = parseJsonResponse(connection);
+    final JsonNode error = response.path("error");
+    if (!error.isMissingNode()) {
       throw new SeedException(error.toString());
     }
-    final JSONObject result = checkedGetObject(response, "result", JSONObject.class);
-    final JSONObject random = checkedGetObject(result, "random", JSONObject.class);
-    final Object data = checkedGetObject(random, "data", Object.class);
-    final String base64seed =
-        ((data instanceof JSONArray) ? ((JSONArray) data).get(0) : data).toString();
+    final JsonNode result = response.path("result");
+    final JsonNode random = result.path("random").path("data");
+    final String base64seed = ((random.isArray()) ? random.get(0) : random).textValue();
+    if (base64seed == null) {
+      throw new SeedException("Unexpected 'data': " + random);
+    }
     final byte[] decodedSeed;
     try {
       decodedSeed = BASE64.decode(base64seed);
@@ -118,10 +116,10 @@ public final class RandomDotOrgApi2Client extends WebSeedClient {
     }
     System.arraycopy(decodedSeed, 0, seed, offset, length);
     if (getRetryDelayMs() > 0) {
-      final Object advisoryDelayMs = result.get("advisoryDelay");
-      if (advisoryDelayMs instanceof Number) {
+      long advisoryDelayMs = result.path("advisoryDelay").asLong(0);
+      if (advisoryDelayMs > 0) {
         // Wait RETRY_DELAY or the advisory delay, whichever is shorter
-        final long delayMs = Math.min(getRetryDelayMs(), ((Number) advisoryDelayMs).longValue());
+        final long delayMs = Math.min(getRetryDelayMs(), advisoryDelayMs);
         earliestNextAttempt = CLOCK.instant().plusMillis(delayMs);
       }
     }

@@ -1,12 +1,14 @@
 package io.github.pr0methean.newbetterrandom.producer;
 
-import io.github.pr0methean.betterrandom.util.BinaryUtils;
+import com.fasterxml.jackson.core.TreeNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import io.github.pr0methean.newbetterrandom.buffer.AtomicSeedByteRingBuffer;
+
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
+import java.util.HexFormat;
 
 /**
  * API client for the Australian National University's <a href="https://qrng.anu.edu.au/">quantum
@@ -21,12 +23,16 @@ public class AnuQuantumSeedClient extends WebSeedClient {
 
   private static final String REQUEST_URL_FORMAT
       = "https://qrng.anu.edu.au/API/jsonI.php?length=%d&type=hex16&size=%d";
-  private static final long serialVersionUID = -7067446291370465008L;
+  private static final HexFormat HEX_FORMAT = HexFormat.of();
 
-  public AnuQuantumSeedClient() {}
-
-  public AnuQuantumSeedClient(WebSeedClientConfiguration configuration) {
-    super(configuration);
+  /**
+   * @param buffer
+   * @param sourceReadSize
+   * @param webSeedClientConfiguration configuration
+   */
+  protected AnuQuantumSeedClient(AtomicSeedByteRingBuffer buffer, int sourceReadSize,
+                                 WebSeedClientConfiguration webSeedClientConfiguration) {
+    super(buffer, sourceReadSize, webSeedClientConfiguration);
   }
 
   @Override protected int getMaxRequestSize() {
@@ -45,8 +51,12 @@ public class AnuQuantumSeedClient extends WebSeedClient {
 
   @Override protected void downloadBytes(HttpURLConnection connection, byte[] seed, int offset,
       int length) throws IOException {
-    final JSONObject response = parseJsonResponse(connection);
-    final JSONArray byteStrings = checkedGetObject(response, "data", JSONArray.class);
+    final TreeNode response = parseJsonResponse(connection);
+    final TreeNode byteStringsNode = response.get("data");
+    if (!byteStringsNode.isArray()) {
+      throw new SeedException("Wrong type of 'data' node in response");
+    }
+    final ArrayNode byteStrings = (ArrayNode) byteStringsNode;
     final int stringCount, stringLength, usedLengthOfLastString;
     if (length > MAX_BYTES_PER_STRING) {
       stringCount = divideRoundingUp(length, MAX_BYTES_PER_STRING);
@@ -63,22 +73,18 @@ public class AnuQuantumSeedClient extends WebSeedClient {
     }
     try {
       for (int stringIndex = 0; stringIndex < stringCount - 1; stringIndex++) {
-        BinaryUtils.convertHexStringToBytes(
-            getStringAndCheckLength(byteStrings, stringIndex, 2 * stringLength),
-            seed,
-            offset + stringIndex * stringLength);
+        byte[] bytes = HEX_FORMAT.parseHex(getStringAndCheckLength(byteStrings, stringIndex, 2 * stringLength));
+        System.arraycopy(bytes, 0, seed, offset + stringIndex * stringLength, stringLength);
       }
-      BinaryUtils.convertHexStringToBytes(
-          getStringAndCheckLength(byteStrings, stringCount - 1, 2 * stringLength)
-              .substring(0, usedLengthOfLastString * 2),
-          seed, offset + stringLength * (stringCount - 1));
+      byte[] lastBytes = HEX_FORMAT.parseHex(getStringAndCheckLength(byteStrings, stringCount - 1, 2 * usedLengthOfLastString));
+      System.arraycopy(lastBytes, 0, seed, offset + stringLength * (stringCount - 1), usedLengthOfLastString);
       connection.disconnect();
     } catch (IllegalArgumentException e) {
       throw new SeedException("qrng.anu.edu.au returned malformed JSON", e);
     }
   }
 
-  private static String getStringAndCheckLength(JSONArray array, int index, int expectedLength) {
+  private static String getStringAndCheckLength(ArrayNode array, int index, int expectedLength) {
     String out = array.get(index).toString();
     int actualLength = out.length();
     if (actualLength != expectedLength) {
