@@ -30,21 +30,7 @@ public class ReseedByJumpingAndLeapingRandomGenerator implements ReseedableRando
 
   @Override
   public void reseed(byte[] seed) {
-    long seedAsLong;
-    if (seed.length <= Long.BYTES) {
-      seedAsLong = 0;
-      for (int i = 0; i < seed.length; i++) {
-        seedAsLong <<= Byte.SIZE;
-        seedAsLong |= toUnsignedLong(seed[i]);
-      }
-    } else {
-      seedAsLong = 1;
-      for (byte b : seed) {
-        seedAsLong *= 31;
-        seedAsLong += b;
-      }
-    }
-    reseed(seedAsLong);
+    reseed(ReseedableRandomGenerator.bytesToLong(seed, seedBits));
   }
 
   @Override
@@ -55,7 +41,7 @@ public class ReseedByJumpingAndLeapingRandomGenerator implements ReseedableRando
     }
     long numLeaps = (seed & leapSeedMask) >>> jumpBits;
     if (numLeaps == 0 && numJumps == 0) {
-      numLeaps = (leapSeedMask == -1) ? leapSeedMask + 1 : (leapSeedMask - 1);
+      numLeaps = (leapSeedMask == -1) ? leapSeedMask : (leapSeedMask + 1);
     }
     numLeaps &= Integer.MAX_VALUE;
     for (int i = 0; i < numLeaps; i++) {
