@@ -47,7 +47,8 @@ public interface ReseedableRandomGenerator extends RandomGenerator {
     };
     for (int i = 0; i < repeats; i++) {
       for (byte b : input) {
-        long z = result + b * GOLDEN_RATIO_64;
+        // Mixing in i ensures we get different results for different size inputs
+        long z = result + (b + (i << Byte.SIZE)) * GOLDEN_RATIO_64;
         z = (z ^ (z >>> 33)) * 0xff51afd7ed558ccdL;
         z = (z ^ (z >>> 33)) * 0xc4ceb9fe1a85ec53L;
         result = z ^ (z >>> 33);
