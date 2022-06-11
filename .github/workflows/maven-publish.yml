@@ -6,6 +6,10 @@ name: Maven Package
 on:
   release:
     types: [created]
+  push:
+    branches: ['*']
+  pull-request:
+    branches: ['*']
 
 jobs:
   build:
@@ -17,7 +21,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Set up JDK 11
+    - name: Set up JDK 19ea
       uses: actions/setup-java@v3
       with:
         java-version: '19-ea'
