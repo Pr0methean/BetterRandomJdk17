@@ -37,7 +37,7 @@ jobs:
 
     # FIXME: Should be able to run this with full SSL security
     - name: Build with Maven
-      run: mvn -U -B -s $GITHUB_WORKSPACE/settings.xml package --file pom.xml
+      run: mvn -U -B package --file pom.xml -Dmaven.wagon.http.ssl.insecure=true -Dmaven.wagon.http.ssl.allowall=true
 
     - name: Publish to GitHub Packages Apache Maven
       run: mvn deploy -s $GITHUB_WORKSPACE/settings.xml
