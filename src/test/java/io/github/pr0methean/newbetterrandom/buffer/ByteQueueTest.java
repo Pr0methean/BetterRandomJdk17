@@ -305,6 +305,7 @@ abstract class ByteQueueTest {
     }
     writers.forEach(Thread::start);
     readers.forEach(Thread::start);
+    startLatch.await();
     try {
       Thread.sleep(MULTITHREAD_TEST_TIME_MS);
     } finally {
