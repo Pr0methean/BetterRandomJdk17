@@ -1,8 +1,8 @@
 package io.github.pr0methean.newbetterrandom.webclient;
 
-import io.github.pr0methean.newbetterrandom.core.buffer.ByteQueue;
-import io.github.pr0methean.newbetterrandom.core.producer.SecureRandomSeedProvider;
-import io.github.pr0methean.newbetterrandom.core.producer.SeedException;
+import io.github.pr0methean.newbetterrandom.buffer.ByteQueue;
+import io.github.pr0methean.newbetterrandom.producer.SecureRandomSeedProvider;
+import io.github.pr0methean.newbetterrandom.producer.SeedException;
 
 import java.io.BufferedReader;
 import java.io.IOException;

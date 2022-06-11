@@ -15,6 +15,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLongArray;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -47,9 +48,9 @@ abstract class ByteQueueTest {
   @Test
   public void testOfferThenPollSingleCall() {
     try (final ByteQueue buffer = createBuffer(1 << 5)) {
-      assertEquals(SIZE, buffer.offer(BYTES, 0, SIZE));
+      Assertions.assertEquals(SIZE, buffer.offer(BYTES, 0, SIZE));
       final byte[] output = new byte[SIZE];
-      assertEquals(SIZE, buffer.poll(output, 0, SIZE));
+      Assertions.assertEquals(SIZE, buffer.poll(output, 0, SIZE));
       assertArrayEquals(BYTES, output);
     }
   }
@@ -62,18 +63,18 @@ abstract class ByteQueueTest {
       checkTwoWrites(buffer, writeSplitPoint, BYTES);
       final byte[] output = new byte[SIZE];
       final int readSplitPoint = 13;
-      assertEquals(readSplitPoint, buffer.poll(output, 0, readSplitPoint));
+      Assertions.assertEquals(readSplitPoint, buffer.poll(output, 0, readSplitPoint));
       checkInvariantsIfPossible(buffer);
-      assertEquals(SIZE - readSplitPoint, buffer.poll(output, readSplitPoint, SIZE - readSplitPoint));
+      Assertions.assertEquals(SIZE - readSplitPoint, buffer.poll(output, readSplitPoint, SIZE - readSplitPoint));
       checkInvariantsIfPossible(buffer);
       assertArrayEquals(BYTES, output);
     }
   }
 
   private static void checkTwoWrites(final ByteQueue buffer, final int writeSplitPoint, final byte[] input) {
-    assertEquals(writeSplitPoint, buffer.offer(input, 0, writeSplitPoint));
+    Assertions.assertEquals(writeSplitPoint, buffer.offer(input, 0, writeSplitPoint));
     checkInvariantsIfPossible(buffer);
-    assertEquals(input.length - writeSplitPoint, buffer.offer(input, writeSplitPoint, input.length - writeSplitPoint));
+    Assertions.assertEquals(input.length - writeSplitPoint, buffer.offer(input, writeSplitPoint, input.length - writeSplitPoint));
     checkInvariantsIfPossible(buffer);
   }
 
@@ -100,7 +101,7 @@ abstract class ByteQueueTest {
     final byte[] dummyInput = new byte[size];
     try (final ByteQueue buffer = createBuffer(size)) {
       buffer.offer(dummyInput, 0, size);
-      assertEquals(0, buffer.offer(dummyInput, 0, size));
+      Assertions.assertEquals(0, buffer.offer(dummyInput, 0, size));
     }
   }
 
@@ -109,7 +110,7 @@ abstract class ByteQueueTest {
   public void testReadWhenEmpty() {
     final int size = 1 << 4;
     try (final ByteQueue buffer = createBuffer(size)) {
-      assertEquals(0, buffer.poll(new byte[size], 0, size));
+      Assertions.assertEquals(0, buffer.poll(new byte[size], 0, size));
     }
   }
 
@@ -134,7 +135,7 @@ abstract class ByteQueueTest {
         assertEquals(SIZE, read);
         Thread.sleep(100);
       }
-      assertEquals(SIZE, buffer.poll(dest, 0, SIZE));
+      Assertions.assertEquals(SIZE, buffer.poll(dest, 0, SIZE));
       Thread.sleep(100);
       assertTrue(writeTask.isCompletedNormally());
     }
@@ -153,11 +154,11 @@ abstract class ByteQueueTest {
       });
       final byte[] write = new byte[SIZE];
       for (int i = 0; i < 3; i++) {
-        assertEquals(SIZE, buffer.offer(write, 0, SIZE));
+        Assertions.assertEquals(SIZE, buffer.offer(write, 0, SIZE));
         Thread.sleep(100);
         assertFalse(readTask.isDone());
       }
-      assertEquals(SIZE, buffer.offer(write, 0, SIZE));
+      Assertions.assertEquals(SIZE, buffer.offer(write, 0, SIZE));
       Thread.sleep(100);
       assertTrue(readTask.isCompletedNormally());
     }

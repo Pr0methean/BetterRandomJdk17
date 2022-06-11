@@ -28,8 +28,8 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import io.github.pr0methean.newbetterrandom.core.buffer.ByteQueue;
-import io.github.pr0methean.newbetterrandom.core.producer.SeedException;
+import io.github.pr0methean.newbetterrandom.buffer.ByteQueue;
+import io.github.pr0methean.newbetterrandom.producer.SeedException;
 
 /**
  * Uses the random.org JSON API documented at
