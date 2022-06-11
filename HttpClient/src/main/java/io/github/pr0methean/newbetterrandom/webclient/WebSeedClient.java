@@ -1,4 +1,4 @@
-package io.github.pr0methean.newbetterrandom.producer;
+package io.github.pr0methean.newbetterrandom.webclient;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -21,6 +21,8 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.github.pr0methean.newbetterrandom.buffer.ByteQueue;
+import io.github.pr0methean.newbetterrandom.producer.AbstractSeedProvider;
+import io.github.pr0methean.newbetterrandom.producer.SeedException;
 
 /**
  * An {@link AbstractSeedProvider} that is a client for a Web random-number service. Contains many methods

@@ -1,9 +1,6 @@
-package io.github.pr0methean.newbetterrandom.producer;
+package io.github.pr0methean.newbetterrandom.webclient;
 
 import java.net.Proxy;
-import java.time.Duration;
-import java.util.Objects;
-import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 import javax.net.ssl.SSLSocketFactory;
 

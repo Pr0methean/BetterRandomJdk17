@@ -1,8 +1,5 @@
 package io.github.pr0methean.newbetterrandom.buffer;
 
-import java.io.IOException;
-import java.lang.ref.Cleaner;
-
 public abstract class AbstractByteQueue implements ByteQueue {
 
   protected volatile boolean closed;

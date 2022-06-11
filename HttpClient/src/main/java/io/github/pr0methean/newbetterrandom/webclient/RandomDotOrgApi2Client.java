@@ -13,7 +13,7 @@
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
 // ============================================================================
-package io.github.pr0methean.newbetterrandom.producer;
+package io.github.pr0methean.newbetterrandom.webclient;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -28,7 +28,8 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import io.github.pr0methean.newbetterrandom.buffer.ByteQueue;
+import io.github.pr0methean.newbetterrandom.core.buffer.ByteQueue;
+import io.github.pr0methean.newbetterrandom.core.producer.SeedException;
 
 /**
  * Uses the random.org JSON API documented at

@@ -1,6 +1,5 @@
 package io.github.pr0methean.newbetterrandom.buffer;
 
-import java.io.IOException;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 

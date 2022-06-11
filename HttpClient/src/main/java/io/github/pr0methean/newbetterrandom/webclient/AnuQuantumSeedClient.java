@@ -1,8 +1,9 @@
-package io.github.pr0methean.newbetterrandom.producer;
+package io.github.pr0methean.newbetterrandom.webclient;
 
 import com.fasterxml.jackson.core.TreeNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import io.github.pr0methean.newbetterrandom.buffer.ByteQueue;
+import io.github.pr0methean.newbetterrandom.core.buffer.ByteQueue;
+import io.github.pr0methean.newbetterrandom.core.producer.SeedException;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;

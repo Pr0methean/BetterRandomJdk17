@@ -1,6 +1,5 @@
 package io.github.pr0methean.newbetterrandom.autoreseed;
 
-import java.util.Objects;
 import java.util.random.RandomGenerator;
 
 import io.github.pr0methean.newbetterrandom.reseedable.ReseedableRandomGenerator;

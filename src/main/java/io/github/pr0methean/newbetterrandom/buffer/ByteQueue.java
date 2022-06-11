@@ -1,9 +1,6 @@
 package io.github.pr0methean.newbetterrandom.buffer;
 
 import java.io.Closeable;
-import java.io.IOException;
-import java.lang.ref.WeakReference;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
 public interface ByteQueue extends Closeable {
