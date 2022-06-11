@@ -31,7 +31,7 @@ public abstract class AbstractByteQueue implements ByteQueue {
   }
 
   @Override
-  public void close() throws IOException {
+  public void close() {
     closed = true;
   }
 

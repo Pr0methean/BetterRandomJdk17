@@ -1,6 +1,7 @@
 package io.github.pr0methean.newbetterrandom.buffer;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
@@ -86,6 +87,8 @@ public interface ByteQueue extends Closeable {
    * @throws InterruptedException if interrupted white waiting to write
    */
   void read(byte[] dest, int start, int length) throws InterruptedException;
+
+  void close();
 
   /**
    * Indicates whether this byte queue has been closed, meaning no more can be written to it.

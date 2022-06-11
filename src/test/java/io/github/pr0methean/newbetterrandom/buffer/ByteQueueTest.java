@@ -33,37 +33,40 @@ abstract class ByteQueueTest {
   @Timeout(value = 1, unit = TimeUnit.SECONDS)
   public void testWrite() throws InterruptedException {
     final byte[] bytes = new byte[]{0,1,2,3,4,5,6,7};
-    final ByteQueue buffer = createBuffer(bytes.length);
-    final int bytesWritten = buffer.offer(bytes, 0, bytes.length);
-    assertEquals(bytes.length, bytesWritten);
-    final byte[] outBytes = new byte[8];
-    buffer.read(outBytes, 0, 8);
-    assertArrayEquals(bytes, outBytes);
+    try (final ByteQueue buffer = createBuffer(bytes.length)) {
+      final int bytesWritten = buffer.offer(bytes, 0, bytes.length);
+      assertEquals(bytes.length, bytesWritten);
+      final byte[] outBytes = new byte[8];
+      buffer.read(outBytes, 0, 8);
+      assertArrayEquals(bytes, outBytes);
+    }
   }
 
   @Timeout(value = 1, unit = TimeUnit.SECONDS)
   @Test
   public void testOfferThenPollSingleCall() {
-    final ByteQueue buffer = createBuffer(1 << 5);
-    assertEquals(SIZE, buffer.offer(BYTES, 0, SIZE));
-    final byte[] output = new byte[SIZE];
-    assertEquals(SIZE, buffer.poll(output, 0, SIZE));
-    assertArrayEquals(BYTES, output);
+    try (final ByteQueue buffer = createBuffer(1 << 5)) {
+      assertEquals(SIZE, buffer.offer(BYTES, 0, SIZE));
+      final byte[] output = new byte[SIZE];
+      assertEquals(SIZE, buffer.poll(output, 0, SIZE));
+      assertArrayEquals(BYTES, output);
+    }
   }
 
   @Timeout(value = 5, unit = TimeUnit.SECONDS)
   @Test
   public void testOfferThenPollMultipleCallsSameThread() {
-    final ByteQueue buffer = createBuffer(1 << 5);
-    final int writeSplitPoint = 3;
-    checkTwoWrites(buffer, writeSplitPoint, BYTES);
-    final byte[] output = new byte[SIZE];
-    final int readSplitPoint = 13;
-    assertEquals(readSplitPoint, buffer.poll(output, 0, readSplitPoint));
-    checkInvariantsIfPossible(buffer);
-    assertEquals(SIZE - readSplitPoint, buffer.poll(output, readSplitPoint, SIZE - readSplitPoint));
-    checkInvariantsIfPossible(buffer);
-    assertArrayEquals(BYTES, output);
+    try (final ByteQueue buffer = createBuffer(1 << 5)) {
+      final int writeSplitPoint = 3;
+      checkTwoWrites(buffer, writeSplitPoint, BYTES);
+      final byte[] output = new byte[SIZE];
+      final int readSplitPoint = 13;
+      assertEquals(readSplitPoint, buffer.poll(output, 0, readSplitPoint));
+      checkInvariantsIfPossible(buffer);
+      assertEquals(SIZE - readSplitPoint, buffer.poll(output, readSplitPoint, SIZE - readSplitPoint));
+      checkInvariantsIfPossible(buffer);
+      assertArrayEquals(BYTES, output);
+    }
   }
 
   private static void checkTwoWrites(final ByteQueue buffer, final int writeSplitPoint, final byte[] input) {
@@ -83,9 +86,10 @@ abstract class ByteQueueTest {
   @Test
   public void testOffByOneRegression() {
     final int size = 1 << 5;
-    final ByteQueue buffer = createBuffer(size);
-    final int writeSplitPoint = size - 1;
-    checkTwoWrites(buffer, writeSplitPoint, new byte[size]);
+    try (final ByteQueue buffer = createBuffer(size)) {
+      final int writeSplitPoint = size - 1;
+      checkTwoWrites(buffer, writeSplitPoint, new byte[size]);
+    }
   }
 
   @Timeout(value = 1, unit = TimeUnit.SECONDS)
@@ -93,66 +97,69 @@ abstract class ByteQueueTest {
   public void testWriteWhenFull() {
     final int size = 1 << 4;
     final byte[] dummyInput = new byte[size];
-    final ByteQueue buffer = createBuffer(size);
-    buffer.offer(dummyInput, 0, size);
-    assertEquals(0, buffer.offer(dummyInput, 0, size));
+    try (final ByteQueue buffer = createBuffer(size)) {
+      buffer.offer(dummyInput, 0, size);
+      assertEquals(0, buffer.offer(dummyInput, 0, size));
+    }
   }
 
   @Timeout(value = 1, unit = TimeUnit.SECONDS)
   @Test
   public void testReadWhenEmpty() {
     final int size = 1 << 4;
-    final ByteQueue buffer = createBuffer(size);
-    assertEquals(0, buffer.poll(new byte[size], 0, size));
+    try (final ByteQueue buffer = createBuffer(size)) {
+      assertEquals(0, buffer.poll(new byte[size], 0, size));
+    }
   }
 
   @Timeout(value = 5, unit = TimeUnit.SECONDS)
   @Test
   public void testWriteBlocking() throws InterruptedException {
-    final ByteQueue buffer = createBuffer(1 << 5);
-    final ForkJoinPool pool = new ForkJoinPool();
-    final ForkJoinTask<?> writeTask = pool.submit(() -> {
-      try {
-        buffer.write(new byte[1 << 6], 0, 1 << 6);
-      } catch (final InterruptedException e) {
-        throw new AssertionError(e);
+    try (final ByteQueue buffer = createBuffer(1 << 5);
+         final ForkJoinPool pool = new ForkJoinPool()) {
+      final ForkJoinTask<?> writeTask = pool.submit(() -> {
+        try {
+          buffer.write(new byte[1 << 6], 0, 1 << 6);
+        } catch (final InterruptedException e) {
+          throw new AssertionError(e);
+        }
+      });
+      final byte[] dest = new byte[SIZE];
+      for (int i = 0; i < 2; i++) {
+        int read = 0;
+        while (read < SIZE) {
+          read += buffer.poll(dest, 0, SIZE - read);
+        }
+        assertEquals(SIZE, read);
+        Thread.sleep(100);
       }
-    });
-    final byte[] dest = new byte[SIZE];
-    for (int i = 0; i < 2; i++) {
-      int read = 0;
-      while (read < SIZE) {
-        read += buffer.poll(dest, 0, SIZE - read);
-      }
-      assertEquals(SIZE, read);
+      assertEquals(SIZE, buffer.poll(dest, 0, SIZE));
       Thread.sleep(100);
+      assertTrue(writeTask.isCompletedNormally());
     }
-    assertEquals(SIZE, buffer.poll(dest, 0, SIZE));
-    Thread.sleep(100);
-    assertTrue(writeTask.isCompletedNormally());
   }
 
   @Timeout(value = 5, unit = TimeUnit.SECONDS)
   @Test
   public void testReadBlocking() throws InterruptedException {
-    final ByteQueue buffer = createBuffer(1 << 5);
-    final ForkJoinPool pool = new ForkJoinPool();
-    final ForkJoinTask<?> readTask = pool.submit(() -> {
-      try {
-        buffer.read(new byte[SIZE * 3 + 1], 0, SIZE * 3 + 1);
-      } catch (final InterruptedException e) {
-        throw new AssertionError(e);
+    try (final ByteQueue buffer = createBuffer(1 << 5); final ForkJoinPool pool = new ForkJoinPool()) {
+      final ForkJoinTask<?> readTask = pool.submit(() -> {
+        try {
+          buffer.read(new byte[SIZE * 3 + 1], 0, SIZE * 3 + 1);
+        } catch (final InterruptedException e) {
+          throw new AssertionError(e);
+        }
+      });
+      final byte[] write = new byte[SIZE];
+      for (int i = 0; i < 3; i++) {
+        assertEquals(SIZE, buffer.offer(write, 0, SIZE));
+        Thread.sleep(100);
+        assertFalse(readTask.isDone());
       }
-    });
-    final byte[] write = new byte[SIZE];
-    for (int i = 0; i < 3; i++) {
       assertEquals(SIZE, buffer.offer(write, 0, SIZE));
       Thread.sleep(100);
-      assertFalse(readTask.isDone());
+      assertTrue(readTask.isCompletedNormally());
     }
-    assertEquals(SIZE, buffer.offer(write, 0, SIZE));
-    Thread.sleep(100);
-    assertTrue(readTask.isCompletedNormally());
   }
 
   private static final int MIN_READERS = 1;
@@ -229,100 +236,102 @@ abstract class ByteQueueTest {
       final int minReadSize, final int maxReadSize, final int minWriteSize, final int maxWriteSize, final long bytesPerReader,
       final boolean alignWrites) throws InterruptedException {
     final ConcurrentLinkedQueue<Throwable> throwables = new ConcurrentLinkedQueue<>();
-    final ByteQueue buffer = createBuffer(CAPACITY);
     final AtomicLongArray bytesFinishedReading = new AtomicLongArray(numReaders);
     final List<Thread> readers = new ArrayList<>(numReaders);
     final List<Thread> writers = new ArrayList<>(numWriters);
     final CountDownLatch startLatch = new CountDownLatch(numReaders + numWriters);
     final ThreadGroup readersAndWriters = new ThreadGroup("readersAndWriters") {
-      @Override public void uncaughtException(final Thread t, final Throwable e) {
+      @Override
+      public void uncaughtException(final Thread t, final Throwable e) {
         throwables.add(e);
       }
     };
-    for (int i = 0; i < numReaders; i++) {
-      final int threadNumber = i;
-      readers.add(new Thread(readersAndWriters, () -> {
-        final byte[] output = new byte[maxReadSize];
-        startLatch.countDown();
-        try {
-          startLatch.await();
-        } catch (final InterruptedException e) {
-          throw new AssertionError(e);
-        }
-        int readSize;
-        while (true) {
-          readSize = ThreadLocalRandom.current().nextInt(minReadSize, maxReadSize + 1);
+    try (final ByteQueue buffer = createBuffer(CAPACITY)) {
+      for (int i = 0; i < numReaders; i++) {
+        final int threadNumber = i;
+        readers.add(new Thread(readersAndWriters, () -> {
+          final byte[] output = new byte[maxReadSize];
+          startLatch.countDown();
           try {
-            buffer.read(output, 0, readSize);
-            bytesFinishedReading.getAndAdd(threadNumber, readSize);
+            startLatch.await();
           } catch (final InterruptedException e) {
-            return;
-          } finally {
-            if (buffer instanceof AtomicByteRingBuffer b
-                && ThreadLocalRandom.current().nextInt(AVG_ITERATIONS_PER_INVARIANT_CHECK) == 0) {
-              b.checkInternalInvariants();
+            throw new AssertionError(e);
+          }
+          int readSize;
+          while (true) {
+            readSize = ThreadLocalRandom.current().nextInt(minReadSize, maxReadSize + 1);
+            try {
+              buffer.read(output, 0, readSize);
+              bytesFinishedReading.getAndAdd(threadNumber, readSize);
+            } catch (final InterruptedException e) {
+              return;
+            } finally {
+              if (buffer instanceof AtomicByteRingBuffer b
+                  && ThreadLocalRandom.current().nextInt(AVG_ITERATIONS_PER_INVARIANT_CHECK) == 0) {
+                b.checkInternalInvariants();
+              }
+            }
+            for (int j = 0; j < readSize; j++) {
+              assertEquals(1, output[j]);
             }
           }
-          for (int j = 0; j < readSize; j++) {
-            assertEquals(1, output[j]);
+        }, "Reader-" + i));
+      }
+      for (int i = 0; i < numWriters; i++) {
+        writers.add(new Thread(readersAndWriters, () -> {
+          final byte[] input = new byte[maxWriteSize];
+          for (int j = 0; j < maxWriteSize; j++) {
+            input[j] = 1;
           }
-        }
-      }, "Reader-" + i));
-    }
-    for (int i = 0; i < numWriters; i++) {
-      writers.add(new Thread(readersAndWriters, () -> {
-        final byte[] input = new byte[maxWriteSize];
-        for (int j = 0; j < maxWriteSize; j++) {
-          input[j] = 1;
-        }
-        startLatch.countDown();
-        try {
-          startLatch.await();
-        } catch (final InterruptedException ignored) {
-          // May happen spuriously if all readers finish before all writers start
-          Thread.currentThread().interrupt();
-          return;
-        }
-        while (true) {
-          final int writeSize;
-          if (alignWrites) {
-            writeSize = ThreadLocalRandom.current().nextInt(minWriteSize >> 3, (maxWriteSize >> 3) + 1) << 3;
-          } else {
-            writeSize = ThreadLocalRandom.current().nextInt(minWriteSize, maxWriteSize + 1);
-          }
+          startLatch.countDown();
           try {
-            buffer.write(input, 0, writeSize);
-          } catch (final InterruptedException e) {
+            startLatch.await();
+          } catch (final InterruptedException ignored) {
+            // May happen spuriously if all readers finish before all writers start
+            Thread.currentThread().interrupt();
             return;
-          } finally {
-            if (buffer instanceof AtomicByteRingBuffer b
-                && ThreadLocalRandom.current().nextInt(AVG_ITERATIONS_PER_INVARIANT_CHECK) == 0) {
-              b.checkInternalInvariants();
+          }
+          while (true) {
+            final int writeSize;
+            if (alignWrites) {
+              writeSize = ThreadLocalRandom.current().nextInt(minWriteSize >> 3, (maxWriteSize >> 3) + 1) << 3;
+            } else {
+              writeSize = ThreadLocalRandom.current().nextInt(minWriteSize, maxWriteSize + 1);
+            }
+            try {
+              buffer.write(input, 0, writeSize);
+            } catch (final InterruptedException e) {
+              return;
+            } finally {
+              if (buffer instanceof AtomicByteRingBuffer b
+                  && ThreadLocalRandom.current().nextInt(AVG_ITERATIONS_PER_INVARIANT_CHECK) == 0) {
+                b.checkInternalInvariants();
+              }
             }
           }
-        }
-      }, "Writer-" + i));
-    }
-    writers.forEach(Thread::start);
-    readers.forEach(Thread::start);
-    startLatch.await();
-    try {
-      Thread.sleep(MULTITHREAD_TEST_TIME_MS);
-    } finally {
-      readers.forEach(Thread::interrupt);
-      writers.forEach(Thread::interrupt);
-    }
-    Thread.sleep(INTERRUPT_TO_JOIN_TIME_MS);
-    for (final Thread reader : readers) {
-      assertFalse(reader.isAlive(), "A reader took too long to exit after interrupt");
-    }
-    for (final Thread writer : writers) {
-      assertFalse(writer.isAlive(), "A writer timed out after being interrupted");
-    }
-    if (!throwables.isEmpty()) {
-      final AssertionError error = new AssertionError("Error in a reader or writer thread");
-      throwables.forEach(error::addSuppressed);
-      throw error;
+        }, "Writer-" + i));
+      }
+      writers.forEach(Thread::start);
+      readers.forEach(Thread::start);
+      startLatch.await();
+      try {
+        Thread.sleep(MULTITHREAD_TEST_TIME_MS);
+      } finally {
+        readers.forEach(Thread::interrupt);
+        writers.forEach(Thread::interrupt);
+      }
+      Thread.sleep(INTERRUPT_TO_JOIN_TIME_MS);
+      for (final Thread reader : readers) {
+        assertFalse(reader.isAlive(), "A reader took too long to exit after interrupt");
+      }
+      for (final Thread writer : writers) {
+        assertFalse(writer.isAlive(), "A writer timed out after being interrupted");
+      }
+      if (!throwables.isEmpty()) {
+        final AssertionError error = new AssertionError("Error in a reader or writer thread");
+        throwables.forEach(error::addSuppressed);
+        throw error;
+      }
     }
     validateBenchmarks(bytesFinishedReading, bytesPerReader);
   }

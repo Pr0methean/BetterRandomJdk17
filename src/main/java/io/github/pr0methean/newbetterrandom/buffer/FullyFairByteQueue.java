@@ -10,7 +10,7 @@ public class FullyFairByteQueue extends AbstractByteQueue implements ReaderFairB
   private final ReaderFairByteQueue readingDelegate;
 
   @Override
-  public void close() throws IOException {
+  public void close() {
     super.close();
     readingDelegate.close();
     writingDelegate.close();

@@ -11,7 +11,7 @@ public class ReaderFairByteQueueWrapper extends AbstractByteQueue implements Rea
   private final long maxPollCallsPerTurn;
 
   @Override
-  public void close() throws IOException {
+  public void close() {
     super.close();
     delegate.close();
   }

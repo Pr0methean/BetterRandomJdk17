@@ -11,7 +11,7 @@ public class WriterFairByteQueueWrapper extends AbstractByteQueue implements Wri
   private final Lock lock;
 
   @Override
-  public void close() throws IOException {
+  public void close() {
     super.close();
     delegate.close();
   }
