@@ -165,8 +165,8 @@ abstract class ByteQueueTest {
 
   private static final int MIN_READERS = 1;
   private static final int MIN_WRITERS = 1;
-  private static final int MAX_WRITERS = Runtime.getRuntime().availableProcessors() * 3 / 4;
-  private static final int MAX_READERS = Runtime.getRuntime().availableProcessors() * 8;
+  private static final int MAX_WRITERS = Runtime.getRuntime().availableProcessors();
+  private static final int MAX_READERS = Runtime.getRuntime().availableProcessors() * 2;
   private static final int CAPACITY = Long.BYTES * 8;
   private static final int[] UNALIGNED_SIZE_BOUNDS = {1, Long.BYTES - 1, Long.BYTES + 1, CAPACITY - 1, CAPACITY + 1};
   private static final int[] ALIGNED_SIZE_BOUNDS = {Long.BYTES, Long.BYTES * 2, CAPACITY, CAPACITY * 2};
@@ -177,7 +177,7 @@ abstract class ByteQueueTest {
 
   public static List<Arguments> createParametersForUnalignedTest() {
     final List<Arguments> arguments = new ArrayList<>();
-    for (int numReaders = MIN_READERS; numReaders < MAX_READERS; numReaders++) {
+    for (int numReaders = MIN_READERS; numReaders < MAX_READERS; numReaders <<= 1) {
       for (int numWriters = MIN_WRITERS; numWriters < MAX_WRITERS; numWriters <<= 1) {
         for (int minReadSizeIndex = 0; minReadSizeIndex < UNALIGNED_SIZE_BOUNDS.length; minReadSizeIndex++) {
           for (int maxReadSizeIndex = minReadSizeIndex; maxReadSizeIndex < UNALIGNED_SIZE_BOUNDS.length; maxReadSizeIndex++) {
@@ -198,7 +198,7 @@ abstract class ByteQueueTest {
   public static List<Arguments> createParametersForPerformanceTest() {
     final List<Arguments> arguments = new ArrayList<>();
     for (int numReaders = MIN_READERS; numReaders <= MAX_READERS; numReaders <<= 1) {
-      for (int numWriters = MIN_WRITERS; numWriters <= MAX_WRITERS; numWriters++) {
+      for (int numWriters = MIN_WRITERS; numWriters <= MAX_WRITERS; numWriters <<= 1) {
         for (int minReadSizeIndex = 0; minReadSizeIndex < ALIGNED_SIZE_BOUNDS.length; minReadSizeIndex++) {
           for (int maxReadSizeIndex = minReadSizeIndex; maxReadSizeIndex < ALIGNED_SIZE_BOUNDS.length; maxReadSizeIndex++) {
             for (int minWriteSizeIndex = 0; minWriteSizeIndex < ALIGNED_SIZE_BOUNDS.length; minWriteSizeIndex++) {
