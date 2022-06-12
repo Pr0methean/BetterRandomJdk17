@@ -8,7 +8,7 @@
         <repository>
             <id>github</id>
             <name>GitHub Pr0methean Apache Maven Packages</name>
-            <url>https://maven.pkg.github.com/Pr0methean/JSemVer</url>
+            <url>https://maven.pkg.github.com/Pr0methean/BetterRandomJdk17</url>
         </repository>
     </distributionManagement>
 
