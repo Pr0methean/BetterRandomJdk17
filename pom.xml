@@ -3,6 +3,7 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+    <artifactId>BetterRandomJdk17</artifactId>
 
     <distributionManagement>
         <repository>
@@ -12,10 +13,12 @@
         </repository>
     </distributionManagement>
 
-    <groupId>io.github.pr0methean.newbetterrandom</groupId>
-    <artifactId>BetterRandomJdk17</artifactId>
-    <packaging>pom</packaging>
-    <version>1.0-SNAPSHOT</version>
+    <parent>
+        <artifactId>BetterRandomJdk17</artifactId>
+        <groupId>io.github.pr0methean.newbetterrandom</groupId>
+        <version>${revision}</version>
+    </parent>
+
     <build>
         <plugins>
             <plugin>
@@ -51,6 +54,7 @@
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <surefire.timeout>3600</surefire.timeout>
+        <revision>1.0-SNAPSHOT</revision>
     </properties>
 
 
