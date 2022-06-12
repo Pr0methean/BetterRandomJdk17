@@ -4,6 +4,14 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>GitHub Pr0methean Apache Maven Packages</name>
+            <url>https://maven.pkg.github.com/Pr0methean/JSemVer</url>
+        </repository>
+    </distributionManagement>
+
     <groupId>io.github.pr0methean.newbetterrandom</groupId>
     <artifactId>BetterRandomJdk17</artifactId>
     <packaging>pom</packaging>
