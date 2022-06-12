@@ -6,6 +6,7 @@
     <groupId>io.github.pr0methean.newbetterrandom</groupId>
     <artifactId>BetterRandomJdk17</artifactId>
     <version>${revision}</version>
+    <packaging>pom</packaging>
 
     <distributionManagement>
         <repository>
