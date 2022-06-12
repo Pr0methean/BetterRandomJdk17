@@ -13,12 +13,6 @@
         </repository>
     </distributionManagement>
 
-    <parent>
-        <artifactId>BetterRandomJdk17</artifactId>
-        <groupId>io.github.pr0methean.newbetterrandom</groupId>
-        <version>${revision}</version>
-    </parent>
-
     <build>
         <plugins>
             <plugin>
