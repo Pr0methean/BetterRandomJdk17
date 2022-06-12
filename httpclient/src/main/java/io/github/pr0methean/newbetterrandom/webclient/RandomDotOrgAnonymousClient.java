@@ -1,7 +1,7 @@
 package io.github.pr0methean.newbetterrandom.webclient;
 
 import io.github.pr0methean.newbetterrandom.buffer.ByteQueue;
-import io.github.pr0methean.newbetterrandom.producer.SecureRandomSeedProvider;
+import io.github.pr0methean.newbetterrandom.producer.SecureRandomSeedFetcher;
 import io.github.pr0methean.newbetterrandom.producer.SeedException;
 
 import java.io.BufferedReader;
@@ -14,7 +14,7 @@ import java.text.MessageFormat;
 /**
  * <p>Connects to <a href="https://www.random.org/clients/http/" target="_top">random.org's old
  * API</a> (via HTTPS) and downloads a set of random bits to use as seed data.  It is generally
- * better to use a {@link SecureRandomSeedProvider} where possible, as it should be much quicker.
+ * better to use a {@link SecureRandomSeedFetcher} where possible, as it should be much quicker.
  * This seed generator is most useful on Microsoft Windows without Cygwin, and other platforms that
  * do not provide {@literal /dev/random} (or where that device is very slow).</p>
  * <p>Random.org collects randomness from atmospheric noise using 9 radios, located at undisclosed

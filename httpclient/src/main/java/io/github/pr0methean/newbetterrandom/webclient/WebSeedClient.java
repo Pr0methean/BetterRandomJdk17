@@ -21,14 +21,14 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.github.pr0methean.newbetterrandom.buffer.ByteQueue;
-import io.github.pr0methean.newbetterrandom.producer.AbstractSeedProvider;
+import io.github.pr0methean.newbetterrandom.producer.AbstractSeedFetcher;
 import io.github.pr0methean.newbetterrandom.producer.SeedException;
 
 /**
- * An {@link AbstractSeedProvider} that is a client for a Web random-number service. Contains many methods
+ * An {@link AbstractSeedFetcher} that is a client for a Web random-number service. Contains many methods
  * for parsing JSON responses.
  */
-public abstract class WebSeedClient extends AbstractSeedProvider {
+public abstract class WebSeedClient extends AbstractSeedFetcher {
   /**
    * Measures the retry delay. A ten-second delay might become either nothing or an hour if we used
    * local time during the start or end of Daylight Saving Time, but it's fine if we occasionally

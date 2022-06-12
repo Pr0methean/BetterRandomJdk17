@@ -4,11 +4,11 @@ import io.github.pr0methean.newbetterrandom.buffer.ByteQueue;
 
 import java.security.SecureRandom;
 
-public class SecureRandomSeedProvider extends AbstractSeedProvider {
+public class SecureRandomSeedFetcher extends AbstractSeedFetcher {
   private final SecureRandom secureRandom;
 
-  public SecureRandomSeedProvider(ByteQueue destBuffer, int sourceReadSize,
-                                  final SecureRandom secureRandom) {
+  public SecureRandomSeedFetcher(ByteQueue destBuffer, int sourceReadSize,
+                                 final SecureRandom secureRandom) {
     super(destBuffer, sourceReadSize);
     this.secureRandom = secureRandom;
   }
